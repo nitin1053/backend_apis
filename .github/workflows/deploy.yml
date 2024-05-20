@@ -1,0 +1,41 @@
+name: Deploy to VM
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Deploy to VM
+        env:
+          HOST: ${{ secrets.VM_HOST }}
+          USERNAME: ${{ secrets.VM_USERNAME }}
+          SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          ssh -i $SSH_KEY -o StrictHostKeyChecking=no $USERNAME@$HOST 'bash -s' << 'EOF'
+          if [ ! -d "/home/azureuser/backend-api" ]; then
+            sudo mkdir -p /home/azureuser/backend-api
+            git clone https://github.com/nitin1053/backend_apis.git /home/azureuser/backend-api
+          fi
+          cd /home/azureuser/backend-api
+          git pull origin master
+          npm install
+          sudo pm2 stop all || true
+          sudo pm2 start app.js --name backend-api --watch
+          sudo pm2 save
+          EOF
